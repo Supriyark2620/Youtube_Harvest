@@ -1,0 +1,120 @@
+
+-----------------------
+Fetch data from rapid API
+-----------------------
+
+import requests
+
+def lambda_handler(event, context):
+    querystring = {"Indices":"NIFTY 50"}
+    rapid_api_url = 'https://latest-stock-price.p.rapidapi.com/price'
+    rapid_api_key = '41dbc68f66msh0f5b78e0c1be18fp154b64jsncff10252d105'
+
+    headers = {
+        'X-RapidAPI-Host': 'latest-stock-price.p.rapidapi.com',
+        'X-RapidAPI-Key':'41dbc68f66msh0f5b78e0c1be18fp154b64jsncff10252d105',
+    }
+
+    try:
+        response = requests.get(rapid_api_url, headers=headers, params=querystring)
+
+        if response.status_code == 200:
+            data = response.json()
+            return {
+                'statusCode': 200,
+                'body': data
+            }
+        else:
+            return {
+                'statusCode': response.status_code,
+                'body': 'Error fetching data from RapidAPI'
+            }
+    except Exception as e:
+        return {
+            'statusCode': 500,
+            'body': f'Internal Server Error: {str(e)}'
+        }
+
+
+------------------------
+send data to sqs_client
+----------------------
+
+import json
+import requests
+import boto3
+import time
+
+api_endpoint = "https://oavjiupm0d.execute-api.us-east-1.amazonaws.com"
+sqs_queue_url = "https://sqs.us-east-1.amazonaws.com/154421520795/Capstone3"
+def lambda_handler(event, context):
+    while True:
+        try:
+            # Hit the API and get data
+            api_response = requests.get(api_endpoint)
+            api_data = api_response.json()
+
+            # Send data to SQS
+            sqs_client = boto3.client('sqs')
+            message_body = json.dumps(api_data)
+            response = sqs_client.send_message(
+                QueueUrl=sqs_queue_url,
+                MessageBody=message_body
+            )
+
+            print(f"API data sent to SQS: {response['MessageId']}")
+            print(response)
+            print(message_body)
+
+        except Exception as e:
+            print(f"Error: {str(e)}")
+
+        time.sleep(900)
+
+
+
+-----------------------
+send data to dynamo db
+--------------------
+
+
+import json 
+import boto3 
+#function definition 
+def lambda_handler(event,context): 
+    dynamodb = boto3.resource('dynamodb') 
+    #table name 
+    table = dynamodb.Table('stockdata') 
+    #inserting values into table 
+    data = receive_message()
+    for message in data.get("Messages", []):
+        message_body = message["Body"]
+        print(type(message_body))
+        Item2={'id': 'Test'}
+        Item2["symbol"]=message_body["symbol"]
+        Item2["dayHigh"]=message_body["dayHigh"]
+        Item2["dayLow"]=message_body["dayLow"]
+        response = table.put_item( 
+        Item=Item2
+        ) 
+        return response
+
+
+def receive_message():
+    sqs_client = boto3.client("sqs", region_name="us-east-1")
+    response = sqs_client.receive_message(
+        QueueUrl="https://sqs.us-east-1.amazonaws.com/154421520795/Capstone3",
+        MaxNumberOfMessages=1,
+        WaitTimeSeconds=10,
+    )
+    print(f"Number of messages received: {len(response.get('Messages', []))}")
+    return response
+	
+	
+	order_id character varying(256),
+    customer_id character varying(256) 
+    product_id character varying(256) 
+    order_date character varying(256) 
+    return_reason character varying(256) 
+    return_date character varying(256) 
+    
